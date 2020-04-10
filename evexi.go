@@ -13,7 +13,8 @@ var (
 	ErrNegativeOrZeroInterval = errors.New("the export interval was negative or zero")
 )
 
-type evexi struct {
+// Evexi should be initialized by the New func
+type Evexi struct {
 	buffer []byte
 
 	// How to export (eg. Write to disk, cloud, etc)
@@ -31,7 +32,7 @@ type evexi struct {
 }
 
 // New exports function must not be nil
-func New(export func([]byte), bufferMaxSize int) (*evexi, error) {
+func New(export func([]byte), bufferMaxSize int) (*Evexi, error) {
 	if export == nil {
 		return nil, ErrExportFuncNotSet
 	}
@@ -43,7 +44,7 @@ func New(export func([]byte), bufferMaxSize int) (*evexi, error) {
 		initialBufSize = bufferMaxSize
 	}
 
-	e := &evexi{
+	e := &Evexi{
 		buffer: make([]byte, 0, initialBufSize),
 
 		export:        export,
@@ -55,7 +56,8 @@ func New(export func([]byte), bufferMaxSize int) (*evexi, error) {
 	return e, nil
 }
 
-func (e *evexi) Export(reset bool) {
+// Export calls the underlying export func with mux locking and the option to reset the buffer
+func (e *Evexi) Export(reset bool) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -68,9 +70,9 @@ func (e *evexi) Export(reset bool) {
 	go e.export(data)
 }
 
-// Interval must be positive
+// IntervalExport must recieve a positive interval
 // Returns a cancellable goroutine that exports the buffer at the provided interval
-func (e *evexi) IntervalExport(exportInterval time.Duration) (func(), error) {
+func (e *Evexi) IntervalExport(exportInterval time.Duration) (func(), error) {
 	if exportInterval <= 0 {
 		return nil, ErrNegativeOrZeroInterval
 	}
@@ -105,7 +107,7 @@ func (e *evexi) IntervalExport(exportInterval time.Duration) (func(), error) {
 	return cancel, nil
 }
 
-func (e *evexi) Write(data []byte) (n int, err error) {
+func (e *Evexi) Write(data []byte) (n int, err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -129,22 +131,22 @@ func (e *evexi) Write(data []byte) (n int, err error) {
 	return len(data), nil
 }
 
-// Makes a copy of the data
-func (e *evexi) Bytes() []byte {
+// Bytes makes a copy of the data
+func (e *Evexi) Bytes() []byte {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
 	return e.bytes()
 }
-func (e *evexi) bytes() []byte {
+func (e *Evexi) bytes() []byte {
 	bufCopy := make([]byte, len(e.buffer))
 	copy(bufCopy[0:], e.buffer)
 
 	return bufCopy
 }
 
-// Resets the buffer
-func (e *evexi) Reset() {
+// Reset resets the buffer
+func (e *Evexi) Reset() {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
@@ -153,7 +155,7 @@ func (e *evexi) Reset() {
 
 // bufferMaxSize keeps the buffer size consistent
 // avgBufSize stops the buffer from growing too much and wasting too much memory (very rudimentary implementation)
-func (e *evexi) reset() {
+func (e *Evexi) reset() {
 	// check bufferMaxSize is set
 	if e.bufferMaxSize > 0 {
 		if len(e.buffer) >= e.bufferMaxSize {
